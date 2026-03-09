@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { getStats, updateStats } from "@/lib/db";
+import { isValidPhone } from "@/lib/utils";
 
 export async function POST(req: Request) {
     try {
         const { phone, isDryRun } = await req.json();
         const PUSHCUT_URL = process.env.PUSHCUT_URL;
+
+        if (!isValidPhone(phone)) {
+            return NextResponse.json({ success: false, error: "Invalid phone number format" }, { status: 400 });
+        }
 
         if (isDryRun) {
             return NextResponse.json({ success: true, msg: `[DRY RUN] Would text ${phone}` });
