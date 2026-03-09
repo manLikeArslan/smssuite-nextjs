@@ -36,7 +36,7 @@ A premium, high-performance SMS campaign management system built with **Next.js 
 ## 🚀 Getting Started
 
 ### 1. Installation
-Clone the repository and install the dependencies:
+Clone the repository & install the dependencies:
 ```bash
 npm install
 ```
