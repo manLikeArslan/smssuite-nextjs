@@ -19,6 +19,7 @@ RUN npm run build
 
 # Stage 3: Production runner
 FROM node:20-alpine AS runner
+RUN apk add --no-cache su-exec
 WORKDIR /app
 
 ENV NODE_ENV production
@@ -41,12 +42,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
-USER nextjs
-
 EXPOSE 3000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# Automatically initialize database if it doesn't exist at startup
-CMD ["sh", "-c", "node scripts/init-db.js && node server.js"]
+# Initialize database as root to ensure volume permissions are handled, then switch to nextjs
+CMD ["sh", "-c", "node scripts/init-db.js && chown -R nextjs:nodejs data && su-exec nextjs node server.js"]
