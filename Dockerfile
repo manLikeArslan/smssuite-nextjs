@@ -14,6 +14,7 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED 1
 
+RUN npm run init-db
 RUN npm run build
 
 # Stage 3: Production runner

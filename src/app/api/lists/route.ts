@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getAllLists, createList, addContact } from "@/lib/db";
 import { isValidPhone } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
     try {
         const lists = getAllLists.all();

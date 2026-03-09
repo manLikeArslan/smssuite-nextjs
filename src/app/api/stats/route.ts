@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getStats, updateStats, getTotalContactCount, getStatusCount } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
     try {
         const stats = getStats.get() as any;
