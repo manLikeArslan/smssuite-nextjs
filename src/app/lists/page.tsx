@@ -3,11 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import {
     Database,
-    Upload,
     Plus,
     FileText,
     Trash2,
-    MoreVertical,
     Loader2,
     CheckCircle2
 } from "lucide-react";
