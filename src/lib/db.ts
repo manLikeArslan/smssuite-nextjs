@@ -22,5 +22,7 @@ export const deleteList = db.prepare("DELETE FROM lists WHERE id = ?");
 
 export const getContactsByList = db.prepare("SELECT * FROM contacts WHERE list_id = ?");
 export const addContact = db.prepare("INSERT INTO contacts (list_id, phone, status) VALUES (?, ?, ?)");
+export const getTotalContactCount = db.prepare("SELECT COUNT(*) as count FROM contacts");
+export const getStatusCount = db.prepare("SELECT COUNT(*) as count FROM contacts WHERE status = ?");
 
 export default db;
