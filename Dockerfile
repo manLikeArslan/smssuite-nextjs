@@ -35,9 +35,11 @@ RUN mkdir data
 RUN chown nextjs:nodejs .next
 RUN chown nextjs:nodejs data
 
-# Leverages output traces to reduce image size (requires output: 'standalone' in next.config.ts)
+# Copy the production build and standalone files
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
 USER nextjs
 
@@ -46,4 +48,5 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-CMD ["node", "server.js"]
+# Automatically initialize database if it doesn't exist at startup
+CMD ["sh", "-c", "node scripts/init-db.js && node server.js"]
