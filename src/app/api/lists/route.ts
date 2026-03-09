@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAllLists, createList, addContact } from "@/lib/db";
+import { isValidPhone } from "@/lib/utils";
 
 export async function GET() {
     try {
@@ -13,6 +14,23 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const { name, numbers } = await req.json();
+
+        if (typeof name !== 'string' || !name.trim()) {
+            return NextResponse.json({ error: "Name is required and must be a string" }, { status: 400 });
+        }
+
+        if (!Array.isArray(numbers)) {
+            return NextResponse.json({ error: "Numbers must be an array" }, { status: 400 });
+        }
+
+        const invalidPhones = numbers.filter(phone => !isValidPhone(phone));
+        if (invalidPhones.length > 0) {
+            return NextResponse.json({
+                error: "Invalid phone number format detected in list",
+                invalidPhones: invalidPhones.slice(0, 10)
+            }, { status: 400 });
+        }
+
         const id = name.toLowerCase().replace(/\s+/g, "-") + "-" + Date.now();
 
         // Save list
