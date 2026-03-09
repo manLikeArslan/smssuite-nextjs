@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🛰️ SMS Suite Systems v1.0
 
-## Getting Started
+A premium, high-performance SMS campaign management system built with **Next.js 15**, **Tailwind CSS**, and **SQLite**. Designed for speed, security, and visual excellence.
 
-First, run the development server:
+![Dashboard Preview](https://github.com/user-attachments/assets/...) <!-- Replace with actual screenshot path if available -->
 
+---
+
+## ✨ Key Features
+
+- **🔐 Enterprise Security**: Password-protected login gateway and session-based middleware protection for all routes.
+- **🗄️ SQLite Powered**: Robust data persistence using `better-sqlite3`. No more fragile JSON files.
+- **🤖 Smart Automation**: 
+  - Randomized wait intervals (15-25s) to avoid carrier rate limits.
+  - **Visual Wait Bar**: Real-time progress tracking with pulsing countdown badges.
+  - **Dry Run Mode**: Test your entire workflow without sending a single real text.
+- **📊 Real-time Dashboard**: Live metrics for Total Managed, Cold Outreach, and Follow-up campaigns.
+- **📁 Advanced List Management**: 
+  - Effortless CSV uploads with automatic phone number extraction.
+  - Relational mapping between lists and contacts.
+- **📱 High-End UI**: Creamy minimalist aesthetic, fully responsive for desktop and mobile operation.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 15 (App Router)](https://nextjs.org/)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Database**: [better-sqlite3](https://github.com/WiseLibs/better-sqlite3)
+- **CSV Parsing**: [PapaParse](https://www.papaparse.com/)
+- **Typography**: [Outfit](https://fonts.google.com/specimen/Outfit)
+
+---
+
+## 🚀 Getting Started
+
+### 1. Installation
+Clone the repository and install the dependencies:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure Environment Variables
+Create a `.env.local` file in the root directory (use `.env.example` as a template):
+```env
+# The URL for your Pushcut automation
+PUSHCUT_URL=https://automation.pushcut.io/execute?identifier=...
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# The secret password for app access
+APP_PASSWORD=1234
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Secret for session signing
+AUTH_SECRET=your_random_secret_here
+```
 
-## Learn More
+### 3. Initialize the Database
+Run the schema initialization script to create your SQLite database and default tables:
+```bash
+npm run init-db
+```
+*(Note: I added a script shortcut. If not available, run `node scripts/init-db.js`)*
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Start the Engine
+Run the development server:
+```bash
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) to access the system.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📖 User Guide
 
-## Deploy on Vercel
+### 🔑 Authentication
+The system is protected by a secure key protocol. Enter your `APP_PASSWORD` from your environment variables to gain access.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 📋 Numbers (List Management)
+1. Navigate to the **Numbers** page.
+2. Click **Upload New List** (or the **+** button).
+3. Select a `.csv` file. The system will automatically extract all valid phone numbers and save them to the database.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 🛰️ Send (Campaign Hub)
+1. Select an **Active List** from the dropdown.
+2. Choose your campaign mode: **NEW** or **FOLLOW-UP**.
+3. **Queue Control**: Click the large number in the Queue card to set your message limit for the session.
+4. **Test Mode**: Toggle this ON to simulate the campaign without making real API calls.
+5. Click **Start Session** and watch the **Session Monitor** for real-time logs and cooling period progress.
+
+---
+
+## 🏗️ Production Build
+
+To create a production-optimized build:
+```bash
+npm run build
+npm start
+```
+
+---
+
+## 🛡️ Privacy & Reliability
+- **Local First**: All your campaign lists and statistics are stored in a local `sqlite.db` file (ignored by Git).
+- **Graceful Failures**: Real-time logging catches and displays carrier errors without crashing the automation loop.
+
+&copy; 2024 SMSSUITE Systems. Optimized for Advanced Agentic Coding.

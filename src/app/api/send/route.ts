@@ -14,6 +14,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, error: "Pushcut URL not configured" }, { status: 500 });
         }
 
+        // Verification Logging
+        console.log(`[SMS AUTHENTICATED] Sending to: ${PUSHCUT_URL}`);
+        console.log(`[PAYLOAD]:`, JSON.stringify({ input: { number: phone } }));
+
         // Proxy to Pushcut
         const response = await fetch(PUSHCUT_URL, {
             method: 'POST',

@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "init-db": "node scripts/init-db.js"
   },
   "dependencies": {
     "@types/better-sqlite3": "^7.6.13",
