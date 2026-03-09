@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smssuite-app
+    restart: always
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./sqlite.db:/app/sqlite.db
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=production
+      - PORT=3000

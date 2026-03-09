@@ -66,7 +66,21 @@ Run the development server:
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to access the system.
+Open [http://localhost:3002](http://localhost:3002) to access the system.
+
+---
+
+## 🐳 Docker Deployment (VPS)
+
+For efficient deployment on a VPS, use Docker Compose:
+
+1. **Configure Environment**: Ensure your `.env.local` is fully populated.
+2. **Launch**:
+   ```bash
+   docker-compose up -d --build
+   ```
+3. **Access**: The system will be available at [http://localhost:3002](http://localhost:3002).
+4. **Persistence**: The SQLite database is automatically persisted in the host directory as `sqlite.db`.
 
 ---
 
