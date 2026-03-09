@@ -2,10 +2,12 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, '..', 'sqlite.db');
+const DATA_DIR = path.join(__dirname, '..', 'data');
+const DB_PATH = path.join(DATA_DIR, 'sqlite.db');
 
-// Ensure data directory exists if we were using it, but we'll put db in root as per User's request (implicitly via gitignore)
-// For Next.js, it's often better to put it in a 'data' folder, but I'll stick to the root for simplicity in this script.
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 console.log('Initializing database at:', DB_PATH);
 

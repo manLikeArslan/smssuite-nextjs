@@ -10,7 +10,7 @@ services:
     ports:
       - "3002:3000"
     volumes:
-      - ./sqlite.db:/app/sqlite.db
+      - ./data:/app/data
     env_file:
       - .env.local
     environment:
