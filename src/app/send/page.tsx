@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Info,
     Send as SendIcon,
@@ -29,7 +29,7 @@ export default function SendPage() {
         fetch("/api/lists").then(res => res.json()).then(data => setLists(data));
     }, []);
 
-    const selectedList = lists.find(l => l.id === selectedListId);
+    const selectedList = useMemo(() => lists.find(l => l.id === selectedListId), [lists, selectedListId]);
 
     // Update sendLimit when selectedList changes
     useEffect(() => {
@@ -38,7 +38,7 @@ export default function SendPage() {
         } else {
             setSendLimit(0);
         }
-    }, [selectedListId, lists]);
+    }, [selectedList]);
 
     const addLog = (msg: string, type: 'error' | 'success' | 'info' = 'info') => {
         const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
