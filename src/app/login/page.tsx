@@ -4,17 +4,17 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, ShieldCheck, AlertCircle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/Toast";
 
 export default function LoginPage() {
     const [password, setPassword] = useState("");
-    const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
+    const { success, error: toastError } = useToast();
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
-        setError("");
 
         try {
             const res = await fetch("/api/auth", {
@@ -24,13 +24,14 @@ export default function LoginPage() {
             });
 
             if (res.ok) {
+                success("Authentication established.");
                 router.push("/");
                 router.refresh();
             } else {
-                setError("Invalid secure protocol key");
+                toastError("Invalid secure protocol key");
             }
         } catch (err) {
-            setError("System connection error");
+            toastError("System connection error");
         } finally {
             setIsLoading(false);
         }
@@ -59,21 +60,13 @@ export default function LoginPage() {
                                 placeholder="Secure Key"
                                 autoFocus
                                 className={cn(
-                                    "w-full bg-white/40 backdrop-blur-sm border rounded-[1.5rem] py-5 px-6 text-sm font-bold text-navy outline-none transition-all placeholder:text-navy/20",
-                                    error ? "border-red-500/20 ring-4 ring-red-500/5" : "border-navy/[0.05] focus:border-navy/10 focus:ring-4 focus:ring-navy/5"
+                                    "w-full bg-white/40 backdrop-blur-sm border border-navy/[0.05] focus:border-navy/10 focus:ring-4 focus:ring-navy/5 rounded-[1.5rem] py-5 px-6 text-sm font-bold text-navy outline-none transition-all placeholder:text-navy/20"
                                 )}
                             />
                             <div className="absolute right-6 top-1/2 -translate-y-1/2 text-navy/20">
                                 <ShieldCheck className="w-5 h-5" />
                             </div>
                         </div>
-
-                        {error && (
-                            <div className="flex items-center gap-2 px-4 py-2 bg-red-500/5 rounded-xl border border-red-500/10">
-                                <AlertCircle className="w-3.5 h-3.5 text-red-700" />
-                                <p className="text-[10px] font-bold text-red-700 uppercase tracking-wider">{error}</p>
-                            </div>
-                        )}
                     </div>
 
                     <button

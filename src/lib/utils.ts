@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
 }
 
-export const PHONE_REGEX = /^\+?[1-9]\d{1,14}$/;
+export const PHONE_REGEX = /^\+?\d{7,15}$/;
 export const MAX_PHONE_LENGTH = 20;
 
 export function isValidPhone(phone: any): phone is string {

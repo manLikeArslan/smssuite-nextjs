@@ -9,6 +9,7 @@ import {
   Clock,
   CheckCircle2
 } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
 export default function Home() {
   const [stats, setStats] = useState({
@@ -18,6 +19,7 @@ export default function Home() {
     health: 100
   });
   const [loading, setLoading] = useState(true);
+  const { error } = useToast();
 
   const fetchStats = async () => {
     try {
@@ -27,6 +29,7 @@ export default function Home() {
       setStats(data);
     } catch (e) {
       console.error(e);
+      error("Failed to refresh dashboard stats.");
     } finally {
       setLoading(false);
     }

@@ -11,6 +11,7 @@ import {
     RotateCw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/Toast";
 
 type Mode = "new" | "followup";
 
@@ -24,6 +25,7 @@ export default function SendPage() {
     const [totalDelay, setTotalDelay] = useState<number>(0);
     const [isSending, setIsSending] = useState(false);
     const [logs, setLogs] = useState<Array<{ time: string, msg: string, type: 'error' | 'success' | 'info' }>>([]);
+    const { success, error, info } = useToast();
 
     useEffect(() => {
         fetch("/api/lists").then(res => res.json()).then(data => setLists(data));
@@ -47,16 +49,19 @@ export default function SendPage() {
 
     const startSession = async () => {
         if (!selectedListId) {
+            error("No active list selected");
             addLog("Sync error: No active list selected", "error");
             return;
         }
 
         if (!selectedList) {
+            error("List metadata missing");
             addLog("Sync error: Selected list metadata missing", "error");
             return;
         }
 
         setIsSending(true);
+        info(`Synchronizing "${selectedList.name}"...`);
         addLog(`Synchronizing "${selectedList.name}" targets...`, 'info');
 
         // Fetch full contact list from server
@@ -65,12 +70,14 @@ export default function SendPage() {
             const res = await fetch(`/api/lists/${selectedListId}/contacts`);
             const data = await res.json();
             if (!data.numbers || data.numbers.length === 0) {
+                error("No contacts found in list");
                 addLog("Sync error: No contacts found in this list", "error");
                 setIsSending(false);
                 return;
             }
             numbers = data.numbers;
         } catch (e) {
+            error("Database connection failure");
             addLog("Sync error: Failed to connect to database", "error");
             setIsSending(false);
             return;
@@ -79,6 +86,7 @@ export default function SendPage() {
         const limit = Math.min(sendLimit, numbers.length);
         const targets = numbers.slice(0, limit);
 
+        success(`Protocol initialized for ${targets.length} targets.`);
         addLog(`Protocol initialized for ${targets.length} targets. Starting ${mode.toUpperCase()} session...`, 'info');
 
         for (let i = 0; i < targets.length; i++) {
@@ -119,6 +127,7 @@ export default function SendPage() {
         }
 
         setIsSending(false);
+        success("Session complete.");
         addLog("Session complete.", 'info');
     };
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Papa from "papaparse";
+import { useToast } from "@/components/Toast";
 
 interface SMSList {
     id: string;
@@ -27,6 +28,7 @@ export default function ListsPage() {
     const [manualListName, setManualListName] = useState("");
     const [manualNumbersRaw, setManualNumbersRaw] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { success, error, info } = useToast();
 
     const fetchLists = async () => {
         try {
@@ -35,6 +37,7 @@ export default function ListsPage() {
             setLists(data);
         } catch (e) {
             console.error(e);
+            error("Failed to load list metadata.");
         } finally {
             setLoading(false);
         }
@@ -49,16 +52,28 @@ export default function ListsPage() {
         if (!file) return;
 
         setUploading(true);
+        info(`Analyzing ${file.name}...`);
+
         Papa.parse(file, {
             complete: async (results) => {
-                const numbers = results.data
-                    .map((row: any) => (Array.isArray(row) ? row[0] : row.phone || row.number || row[0]))
-                    .filter((n: any) => n && typeof n === 'string' && n.trim().length > 5)
-                    .map((n: string) => n.trim());
+                const numbers: string[] = [];
+                const PHONE_REGEX = /^\+?\d{7,15}$/;
+
+                results.data.forEach((row: any) => {
+                    const values = Array.isArray(row) ? row : Object.values(row);
+                    for (const val of values) {
+                        if (typeof val !== "string" && typeof val !== "number") continue;
+                        const cleaned = String(val).replace(/[^\d+]/g, "");
+                        if (cleaned.length >= 7 && cleaned.length <= 15 && PHONE_REGEX.test(cleaned)) {
+                            numbers.push(cleaned);
+                            break; // Take first valid number in this row
+                        }
+                    }
+                });
 
                 if (numbers.length > 0) {
                     try {
-                        await fetch("/api/lists", {
+                        const res = await fetch("/api/lists", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
@@ -66,10 +81,19 @@ export default function ListsPage() {
                                 numbers
                             })
                         });
-                        await fetchLists();
+                        const data = await res.json();
+                        if (data.error) {
+                            error(data.error);
+                        } else {
+                            success(`Successfully imported ${numbers.length} numbers.`);
+                            await fetchLists();
+                        }
                     } catch (e) {
                         console.error(e);
+                        error("Failed to upload list. Communications error.");
                     }
+                } else {
+                    error("No valid phone numbers detected (7-15 digits required).");
                 }
                 setUploading(false);
                 if (fileInputRef.current) fileInputRef.current.value = "";
@@ -81,13 +105,19 @@ export default function ListsPage() {
 
     const handleManualSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const numbers = manualNumbersRaw
-            .split("\n")
-            .map(n => n.trim())
-            .filter(n => n.length > 5);
+        const PHONE_REGEX = /^\+?\d{7,15}$/;
+        const rawNumbers = manualNumbersRaw.split("\n");
+        const numbers: string[] = [];
+
+        rawNumbers.forEach(n => {
+            const cleaned = n.replace(/[^\d+]/g, "");
+            if (cleaned.length >= 7 && cleaned.length <= 15 && PHONE_REGEX.test(cleaned)) {
+                numbers.push(cleaned);
+            }
+        });
 
         if (!manualListName.trim() || numbers.length === 0) {
-            alert("Please provide a name and at least one valid number.");
+            error("Provide a list name and at least one valid number.");
             return;
         }
 
@@ -103,8 +133,9 @@ export default function ListsPage() {
             });
             const data = await res.json();
             if (data.error) {
-                alert(data.error);
+                error(data.error);
             } else {
+                success(`Created list "${manualListName}" with ${numbers.length} numbers.`);
                 await fetchLists();
                 setIsManualModalOpen(false);
                 setManualListName("");
@@ -112,6 +143,7 @@ export default function ListsPage() {
             }
         } catch (e) {
             console.error(e);
+            error("System error while creating list.");
         } finally {
             setUploading(false);
         }
@@ -123,9 +155,15 @@ export default function ListsPage() {
 
         try {
             const res = await fetch(`/api/lists/${id}`, { method: "DELETE" });
-            if (res.ok) fetchLists();
+            if (res.ok) {
+                success("List deleted successfully.");
+                fetchLists();
+            } else {
+                error("Failed to delete list.");
+            }
         } catch (e) {
             console.error(e);
+            error("Connectivity error while deleting.");
         }
     };
 
