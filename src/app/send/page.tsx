@@ -25,11 +25,67 @@ export default function SendPage() {
     const [totalDelay, setTotalDelay] = useState<number>(0);
     const [isSending, setIsSending] = useState(false);
     const [logs, setLogs] = useState<Array<{ time: string, msg: string, type: 'error' | 'success' | 'info' }>>([]);
+    const [progress, setProgress] = useState(0);
     const { success, error, info } = useToast();
 
+    // Persistence: Load Preferences on mount
     useEffect(() => {
+        const savedListId = localStorage.getItem("sms_session_list_id");
+        if (savedListId) setSelectedListId(savedListId);
+
+        const savedMode = localStorage.getItem("sms_session_mode");
+        if (savedMode) setMode(savedMode as Mode);
+
+        const savedTestMode = localStorage.getItem("sms_session_test_mode");
+        if (savedTestMode !== null) setIsTestMode(savedTestMode === "true");
+
         fetch("/api/lists").then(res => res.json()).then(data => setLists(data));
     }, []);
+
+    // Polling Logic: Synchronize with Server Session
+    useEffect(() => {
+        const poll = async () => {
+            try {
+                const res = await fetch("/api/send/status");
+                const data = await res.json();
+
+                if (data.status === 'active') {
+                    setIsSending(true);
+                    if (data.logs) setLogs(data.logs);
+                    setProgress(data.progress || 0);
+                    if (data.totalCount) setSendLimit(data.totalCount);
+                    if (data.listId) setSelectedListId(data.listId);
+                    if (data.mode) setMode(data.mode);
+                    setIsTestMode(data.isTestMode);
+                } else if (data.status === 'completed') {
+                    setIsSending(false);
+                    if (data.logs) setLogs(data.logs);
+                    setProgress(data.progress || data.totalCount);
+                } else {
+                    setIsSending(false);
+                }
+            } catch (e) {
+                console.error("Polling error:", e);
+            }
+        };
+
+        poll(); // Initial check
+        const interval = setInterval(poll, 4000); // Poll every 4s
+        return () => clearInterval(interval);
+    }, []);
+
+    // Persistence: Save Preferences only
+    useEffect(() => {
+        localStorage.setItem("sms_session_list_id", selectedListId);
+    }, [selectedListId]);
+
+    useEffect(() => {
+        localStorage.setItem("sms_session_mode", mode);
+    }, [mode]);
+
+    useEffect(() => {
+        localStorage.setItem("sms_session_test_mode", String(isTestMode));
+    }, [isTestMode]);
 
     const selectedList = useMemo(() => lists.find(l => l.id === selectedListId), [lists, selectedListId]);
 
@@ -42,100 +98,67 @@ export default function SendPage() {
         }
     }, [selectedList]);
 
-    const addLog = (msg: string, type: 'error' | 'success' | 'info' = 'info') => {
-        const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
-        setLogs(prev => [{ time, msg, type }, ...prev]);
-    };
-
     const startSession = async () => {
         if (!selectedListId) {
             error("No active list selected");
-            addLog("Sync error: No active list selected", "error");
-            return;
-        }
-
-        if (!selectedList) {
-            error("List metadata missing");
-            addLog("Sync error: Selected list metadata missing", "error");
             return;
         }
 
         setIsSending(true);
-        info(`Synchronizing "${selectedList.name}"...`);
-        addLog(`Synchronizing "${selectedList.name}" targets...`, 'info');
+        info("Initializing background protocol...");
 
-        // Fetch full contact list from server
-        let numbers: string[] = [];
         try {
-            const res = await fetch(`/api/lists/${selectedListId}/contacts`);
+            const res = await fetch("/api/send/start", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    listId: selectedListId,
+                    mode,
+                    isTestMode,
+                    totalCount: sendLimit
+                })
+            });
+
             const data = await res.json();
-            if (!data.numbers || data.numbers.length === 0) {
-                error("No contacts found in list");
-                addLog("Sync error: No contacts found in this list", "error");
+            if (res.ok) {
+                success("Server worker engaged.");
+            } else {
+                error(data.error || "Execution failed");
                 setIsSending(false);
-                return;
             }
-            numbers = data.numbers;
         } catch (e) {
-            error("Database connection failure");
-            addLog("Sync error: Failed to connect to database", "error");
+            error("Connection failed");
             setIsSending(false);
-            return;
         }
+    };
 
-        const limit = Math.min(sendLimit, numbers.length);
-        const targets = numbers.slice(0, limit);
+    const stopSession = async () => {
+        if (!confirm("Terminate the active background protocol?")) return;
 
-        success(`Protocol initialized for ${targets.length} targets.`);
-        addLog(`Protocol initialized for ${targets.length} targets. Starting ${mode.toUpperCase()} session...`, 'info');
-
-        for (let i = 0; i < targets.length; i++) {
-            const phone = targets[i];
-            addLog(`Sending to ${phone}...`, 'info');
-
-            try {
-                const res = await fetch("/api/send", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ phone, isDryRun: isTestMode })
-                });
-
-                const data = await res.json();
-                if (data.success) {
-                    addLog(`Success: ${phone}${isTestMode ? ' (Dry Run)' : ''}`, 'success');
-                } else {
-                    addLog(`Failed: ${phone} - ${data.error || 'Unknown error'}`, 'error');
-                }
-            } catch (e) {
-                addLog(`Critical error sending to ${phone}`, 'error');
+        try {
+            const res = await fetch("/api/send/status", { method: "DELETE" });
+            if (res.ok) {
+                success("Signal sent to stop worker.");
             }
-
-            if (i < targets.length - 1) {
-                const delay = Math.floor(Math.random() * (25 - 15 + 1) + 15);
-                setTotalDelay(delay);
-                setCountdown(delay);
-                addLog(`Cooling down... Waiting ${delay}s before next send`, 'info');
-
-                // Countdown timer
-                for (let j = delay; j > 0; j--) {
-                    setCountdown(j);
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-                setCountdown(0);
-                setTotalDelay(0);
-            }
+        } catch (e) {
+            error("Failed to reach worker.");
         }
+    };
 
-        setIsSending(false);
-        success("Session complete.");
-        addLog("Session complete.", 'info');
+    const clearSession = () => {
+        if (confirm("Clear local monitor history? This will not affect the database.")) {
+            // Note: In server-side mode, this just clears the UI until the next poll.
+            // If the user wants to clear server logs, we'd need another endpoint.
+            setLogs([]);
+            success("Local view cleared.");
+        }
     };
 
     return (
         <div className="max-w-7xl mx-auto space-y-8">
             <div>
-                <h1 className="text-4xl font-bold tracking-tight text-navy uppercase">Send</h1>
-                <p className="text-navy/60 mt-1 font-medium italic">Start automated messaging session</p>
+                <h1 className="text-4xl font-bold tracking-tight text-navy uppercase leading-none">Protocol Send</h1>
+                <p className="text-navy/60 mt-2 font-medium italic text-xs uppercase tracking-widest">Stateful Messaging Interface</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -152,7 +175,7 @@ export default function SendPage() {
                         >
                             <option value="">Select a list...</option>
                             {lists.map(l => (
-                                <option key={l.id} value={l.id}>{l.name} ({l.count} numbers)</option>
+                                <option key={l.id} value={l.id}>{l.name} ({l.count} total)</option>
                             ))}
                         </select>
                     </div>
@@ -209,8 +232,8 @@ export default function SendPage() {
 
                     <div className="space-y-4">
                         <div className="flex items-center justify-between px-2">
-                            <p className="text-[10px] font-bold text-navy/40 uppercase tracking-[0.2em]">Queue</p>
-                            <p className="text-[10px] font-bold text-navy/40 uppercase">{selectedList?.count || 0} Total</p>
+                            <p className="text-[10px] font-bold text-navy/40 uppercase tracking-[0.2em]">{mode} Queue</p>
+                            <p className="text-[10px] font-bold text-navy/40 uppercase">Initial: {selectedList?.count || 0}</p>
                         </div>
                         <div className="bg-accent/20 rounded-[2.5rem] p-10 border border-navy/[0.05] relative group overflow-hidden flex items-center justify-center">
                             <div className="relative z-10 flex items-center gap-2">
@@ -228,27 +251,49 @@ export default function SendPage() {
                         </div>
                     </div>
 
-                    <button
-                        onClick={startSession}
-                        disabled={isSending || !selectedListId || sendLimit <= 0}
-                        className={cn(
-                            "w-full py-7 rounded-[2rem] font-bold text-xl flex items-center justify-center gap-3 transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 uppercase tracking-tighter",
-                            isSending ? "bg-navy/10 text-navy" : "bg-navy text-white hover:bg-navy-light shadow-navy/20"
+                    <div className="flex flex-col gap-4">
+                        <button
+                            onClick={isSending ? undefined : startSession}
+                            disabled={isSending || !selectedListId || sendLimit <= 0}
+                            className={cn(
+                                "w-full py-7 rounded-[2rem] font-bold text-xl flex flex-col items-center justify-center gap-1 transition-all shadow-xl active:scale-[0.98] disabled:opacity-50 uppercase tracking-tighter relative overflow-hidden",
+                                isSending ? "bg-navy/10 text-navy cursor-default" : "bg-navy text-white hover:bg-navy-light shadow-navy/20"
+                            )}
+                        >
+                            <div className="flex items-center gap-3">
+                                {isSending ? <RotateCw className="w-6 h-6 animate-spin" /> : <Play className="w-6 h-6 fill-current" />}
+                                <span>{isSending ? "Active Stream" : "Start Protocol"}</span>
+                            </div>
+                            {isSending && progress > 0 && (
+                                <p className="text-[10px] font-bold opacity-40">Progress: {Math.round((progress / sendLimit) * 100)}% ({progress}/{sendLimit})</p>
+                            )}
+                            {isSending && (
+                                <div
+                                    className="absolute bottom-0 left-0 h-1 bg-navy/20 transition-all duration-500"
+                                    style={{ width: `${(progress / sendLimit) * 100}%` }}
+                                />
+                            )}
+                        </button>
+
+                        {isSending && (
+                            <button
+                                onClick={stopSession}
+                                className="w-full py-4 rounded-3xl border border-red-500/20 text-red-500 text-xs font-bold uppercase tracking-widest hover:bg-red-500/5 transition-colors"
+                            >
+                                Stop Protocol
+                            </button>
                         )}
-                    >
-                        {isSending ? <RotateCw className="w-6 h-6 animate-spin" /> : <Play className="w-6 h-6 fill-current" />}
-                        {isSending ? "Engaged" : "Start Session"}
-                    </button>
+                    </div>
                 </div>
 
                 {/* Logs Panel */}
-                <div className="lg:col-span-12 xl:col-span-7 bg-white/40 backdrop-blur-sm border border-navy/[0.1] rounded-[2.5rem] p-8 md:p-10 flex flex-col h-[720px] relative overflow-hidden">
-                    {/* Wait Bar */}
-                    {countdown > 0 && (
+                <div className="lg:col-span-12 xl:col-span-7 bg-white/40 backdrop-blur-sm border border-navy/[0.1] rounded-[2.5rem] p-8 md:p-10 flex flex-col h-[720px] relative overflow-hidden shadow-2xl shadow-navy/5">
+                    {/* Progress Bar (Server Side) */}
+                    {isSending && (
                         <div className="absolute top-0 left-0 w-full h-1.5 bg-navy/5 overflow-hidden z-20">
                             <div
-                                className="h-full bg-navy transition-all duration-1000 ease-linear rounded-r-full"
-                                style={{ width: `${(countdown / totalDelay) * 100}%` }}
+                                className="h-full bg-navy transition-all duration-1000 ease-out rounded-r-full"
+                                style={{ width: `${(progress / sendLimit) * 100}%` }}
                             />
                         </div>
                     )}
@@ -256,14 +301,22 @@ export default function SendPage() {
                     <div className="flex items-center justify-between pb-8 border-b border-navy/[0.1] mb-8">
                         <div className="flex items-center gap-3">
                             <History className="w-5 h-5 text-navy/40" />
-                            <p className="text-[10px] font-bold text-navy/40 uppercase tracking-[0.3em]">Session Monitor</p>
+                            <p className="text-[10px] font-bold text-navy/40 uppercase tracking-[0.3em]">Execution Monitor</p>
                         </div>
-                        {countdown > 0 && (
-                            <div className="flex items-center gap-2 px-3 py-1 bg-navy/5 rounded-full animate-pulse">
-                                <RotateCw className="w-3 h-3 text-navy animate-spin" />
-                                <span className="text-[10px] font-bold text-navy uppercase tracking-widest">{countdown}s residual</span>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-4">
+                            {isSending && (
+                                <div className="flex items-center gap-2 px-3 py-1 bg-navy/5 rounded-full animate-pulse">
+                                    <RotateCw className="w-3 h-3 text-navy animate-spin" />
+                                    <span className="text-[10px] font-bold text-navy uppercase tracking-widest">Server-side Loop</span>
+                                </div>
+                            )}
+                            <button
+                                onClick={clearSession}
+                                className="text-[10px] font-bold text-navy/30 hover:text-red-500 uppercase tracking-widest transition-colors"
+                            >
+                                Clear View
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex-1 space-y-5 overflow-y-auto pr-2 custom-scrollbar">

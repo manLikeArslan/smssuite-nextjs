@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getContactsByList, getListById } from "@/lib/db";
+import { getContactsByList, getListById, getContactsByStatus } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,8 @@ export async function GET(
 ) {
     try {
         const { id } = await params;
+        const { searchParams } = new URL(request.url);
+        const status = searchParams.get("status");
 
         // Check if list exists
         const list = getListById.get(id);
@@ -17,7 +19,13 @@ export async function GET(
         }
 
         // Fetch contacts
-        const contacts = getContactsByList.all(id) as any[];
+        let contacts: any[];
+        if (status) {
+            contacts = getContactsByStatus.all(id, status) as any[];
+        } else {
+            contacts = getContactsByList.all(id) as any[];
+        }
+
         const numbers = contacts.map(c => c.phone);
 
         return NextResponse.json({

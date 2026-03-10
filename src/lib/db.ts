@@ -38,8 +38,50 @@ export const createList = safePrepare("INSERT INTO lists (id, name, count) VALUE
 export const deleteList = safePrepare("DELETE FROM lists WHERE id = ?") as any;
 
 export const getContactsByList = safePrepare("SELECT * FROM contacts WHERE list_id = ?") as any;
+export const getContactsByStatus = safePrepare("SELECT * FROM contacts WHERE list_id = ? AND status = ?") as any;
+export const updateContactStatus = safePrepare("UPDATE contacts SET status = ? WHERE list_id = ? AND phone = ?") as any;
 export const addContact = safePrepare("INSERT INTO contacts (list_id, phone, status) VALUES (?, ?, ?)") as any;
 export const getTotalContactCount = safePrepare("SELECT COUNT(*) as count FROM contacts") as any;
 export const getStatusCount = safePrepare("SELECT COUNT(*) as count FROM contacts WHERE status = ?") as any;
+
+export const logSentEvent = safePrepare("INSERT INTO sent_events (status) VALUES (?)") as any;
+
+export const getActiveSession = safePrepare("SELECT * FROM sessions WHERE status = 'active' LIMIT 1") as any;
+export const createSession = safePrepare(`
+  INSERT INTO sessions (id, list_id, mode, is_test_mode, status, total_count)
+  VALUES (?, ?, ?, ?, 'active', ?)
+`) as any;
+export const updateSessionProgress = safePrepare(`
+  UPDATE sessions 
+  SET progress = ?, updated_at = CURRENT_TIMESTAMP 
+  WHERE id = ?
+`) as any;
+export const updateSessionStatus = safePrepare(`
+  UPDATE sessions 
+  SET status = ?, updated_at = CURRENT_TIMESTAMP 
+  WHERE id = ?
+`) as any;
+export const getSessionById = safePrepare("SELECT * FROM sessions WHERE id = ?") as any;
+
+export const addSessionLog = safePrepare(`
+  INSERT INTO session_logs (session_id, message, type)
+  VALUES (?, ?, ?)
+`) as any;
+export const getSessionLogs = safePrepare(`
+  SELECT message as msg, type, strftime('%H:%M:%S', created_at) as time 
+  FROM session_logs 
+  WHERE session_id = ? 
+  ORDER BY created_at DESC
+`) as any;
+
+export const getHeartbeatStats = safePrepare(`
+  SELECT 
+    strftime('%Y-%m-%d %H:00:00', created_at) as hour,
+    COUNT(*) as count
+  FROM sent_events 
+  WHERE created_at >= datetime('now', '-24 hours')
+  GROUP BY hour
+  ORDER BY hour ASC
+`) as any;
 
 export default db;

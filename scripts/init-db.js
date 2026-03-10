@@ -64,6 +64,34 @@ try {
       FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS sent_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      status TEXT NOT NULL, -- 'success' or 'error'
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      list_id TEXT,
+      mode TEXT,
+      is_test_mode BOOLEAN,
+      status TEXT DEFAULT 'active', -- 'active', 'paused', 'completed'
+      progress INTEGER DEFAULT 0,
+      total_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS session_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT,
+      message TEXT NOT NULL,
+      type TEXT DEFAULT 'info', -- 'info', 'success', 'error'
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    );
+
     -- Insert default stats if they don't exist
     INSERT OR IGNORE INTO stats (id, total_managed, cold, followups, health)
     VALUES ('current', 247, 0, 0, 100);

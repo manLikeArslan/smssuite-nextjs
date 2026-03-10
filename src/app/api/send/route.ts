@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getStats, updateStats } from "@/lib/db";
+import { getStats, updateStats, logSentEvent, updateContactStatus } from "@/lib/db";
 import { isValidPhone } from "@/lib/utils";
 
 export async function POST(req: Request) {
     try {
-        const { phone, isDryRun } = await req.json();
+        const { phone, isDryRun, listId } = await req.json();
         const PUSHCUT_URL = process.env.PUSHCUT_URL;
 
         if (!isValidPhone(phone)) {
@@ -12,6 +12,9 @@ export async function POST(req: Request) {
         }
 
         if (isDryRun) {
+            logSentEvent.run('success');
+            // Even in dry run, if listId is provided, we might want to "mark" it? 
+            // Better to only mark on real sends to avoid losing data on tests.
             return NextResponse.json({ success: true, msg: `[DRY RUN] Would text ${phone}` });
         }
 
@@ -32,15 +35,23 @@ export async function POST(req: Request) {
 
         const success = response.ok;
 
-        // Update Stats in SQLite
-        const currentStats = getStats.get() as any;
+        // Update Stats and Contact Status in SQLite
         if (success) {
+            const currentStats = getStats.get() as any;
             updateStats.run(
                 currentStats.total_managed + 1,
                 currentStats.cold,
                 currentStats.followups,
                 currentStats.health
             );
+            logSentEvent.run('success');
+
+            if (listId) {
+                // Update specific contact status to 'followup'
+                updateContactStatus.run('followup', listId, phone);
+            }
+        } else {
+            logSentEvent.run('error');
         }
 
         return NextResponse.json({ success, status: response.status });
