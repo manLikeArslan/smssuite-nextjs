@@ -20,33 +20,33 @@ export default function Home() {
     followups: 0,
     health: 100
   });
-  const [heartbeatData, setHeartbeatData] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const { error } = useToast();
 
   const fetchStats = async () => {
     try {
-      setLoading(true);
-      const [statsRes, heartbeatRes] = await Promise.all([
-        fetch("/api/stats"),
-        fetch("/api/stats/heartbeat")
-      ]);
-
+      const statsRes = await fetch("/api/stats");
       const statsData = await statsRes.json();
-      const heartbeatData = await heartbeatRes.json();
-
       setStats(statsData);
-      setHeartbeatData(heartbeatData.map((s: any) => s.count));
     } catch (e) {
       console.error(e);
-      error("Failed to refresh dashboard stats.");
-    } finally {
-      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStats();
+    const init = async () => {
+      setLoading(true);
+      await fetchStats();
+      setLoading(false);
+    };
+    init();
+
+    // Slower poll for general stats (5s)
+    const statsInterval = setInterval(fetchStats, 5000);
+
+    return () => {
+      clearInterval(statsInterval);
+    };
   }, []);
 
   return (
@@ -69,7 +69,7 @@ export default function Home() {
 
       {/* Main Hero Card */}
       <div className="bg-white/40 backdrop-blur-md border border-navy/[0.08] rounded-[3rem] p-12 relative overflow-hidden group shadow-2xl shadow-navy/5">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8">
+        <div className="relative z-10">
           <div className="space-y-4">
             <p className="text-xs font-bold text-navy/30 uppercase tracking-[0.3em]">Managed Contacts</p>
             <div className="flex items-baseline gap-4">
@@ -77,16 +77,6 @@ export default function Home() {
                 {stats.total_managed}
               </span>
               <span className="text-3xl text-navy/20 font-bold uppercase tracking-widest pb-6 italic">Active</span>
-            </div>
-          </div>
-
-          <div className="pb-8 space-y-4 md:w-1/3">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-navy/40 px-1">
-              <span>Heartbeat (24h)</span>
-              <span>{Math.max(...heartbeatData, 0)} Peak</span>
-            </div>
-            <div className="h-24 w-full flex items-end">
-              <Sparkline data={heartbeatData} width={400} height={80} color="#0A0B1A" />
             </div>
           </div>
         </div>

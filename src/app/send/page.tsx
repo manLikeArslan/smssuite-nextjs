@@ -8,10 +8,12 @@ import {
     Settings2,
     ShieldAlert,
     History,
-    RotateCw
+    RotateCw,
+    Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/Toast";
+import { Sparkline } from "@/components/Sparkline";
 
 type Mode = "new" | "followup";
 
@@ -26,6 +28,7 @@ export default function SendPage() {
     const [isSending, setIsSending] = useState(false);
     const [logs, setLogs] = useState<Array<{ time: string, msg: string, type: 'error' | 'success' | 'info' }>>([]);
     const [progress, setProgress] = useState(0);
+    const [liveHeartbeat, setLiveHeartbeat] = useState<number[]>([]);
     const { success, error, info } = useToast();
 
     // Persistence: Load Preferences on mount
@@ -44,7 +47,7 @@ export default function SendPage() {
 
     // Polling Logic: Synchronize with Server Session
     useEffect(() => {
-        const poll = async () => {
+        const pollStatus = async () => {
             try {
                 const res = await fetch("/api/send/status");
                 const data = await res.json();
@@ -65,13 +68,30 @@ export default function SendPage() {
                     setIsSending(false);
                 }
             } catch (e) {
-                console.error("Polling error:", e);
+                console.error("Status polling error:", e);
             }
         };
 
-        poll(); // Initial check
-        const interval = setInterval(poll, 4000); // Poll every 4s
-        return () => clearInterval(interval);
+        const pollPulse = async () => {
+            try {
+                const res = await fetch("/api/stats/heartbeat/live");
+                const data = await res.json();
+                setLiveHeartbeat(data.map((s: any) => s.count));
+            } catch (e) {
+                console.error("Pulse polling error:", e);
+            }
+        };
+
+        pollStatus();
+        pollPulse();
+
+        const statusInterval = setInterval(pollStatus, 4000);
+        const pulseInterval = setInterval(pollPulse, 1000);
+
+        return () => {
+            clearInterval(statusInterval);
+            clearInterval(pulseInterval);
+        };
     }, []);
 
     // Persistence: Save Preferences only
@@ -299,9 +319,19 @@ export default function SendPage() {
                     )}
 
                     <div className="flex items-center justify-between pb-8 border-b border-navy/[0.1] mb-8">
-                        <div className="flex items-center gap-3">
-                            <History className="w-5 h-5 text-navy/40" />
-                            <p className="text-[10px] font-bold text-navy/40 uppercase tracking-[0.3em]">Execution Monitor</p>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-3">
+                                <History className="w-5 h-5 text-navy/40" />
+                                <p className="text-[10px] font-bold text-navy/40 uppercase tracking-[0.3em]">Execution Monitor</p>
+                            </div>
+                            <div className="h-10 w-48 flex items-end opacity-50">
+                                <Sparkline
+                                    data={liveHeartbeat.length > 0 ? liveHeartbeat : new Array(60).fill(0)}
+                                    width={200}
+                                    height={30}
+                                    color="#0A0B1A"
+                                />
+                            </div>
                         </div>
                         <div className="flex items-center gap-4">
                             {isSending && (

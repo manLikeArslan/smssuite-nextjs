@@ -84,4 +84,14 @@ export const getHeartbeatStats = safePrepare(`
   ORDER BY hour ASC
 `) as any;
 
+export const getLiveHeartbeat = safePrepare(`
+  SELECT 
+    strftime('%Y-%m-%d %H:%M:%S', created_at) as second,
+    COUNT(*) as count
+  FROM sent_events 
+  WHERE created_at >= datetime('now', '-60 seconds')
+  GROUP BY second
+  ORDER BY second ASC
+`) as any;
+
 export default db;
